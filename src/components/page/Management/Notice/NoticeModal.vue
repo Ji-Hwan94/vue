@@ -1,33 +1,112 @@
+<script setup>
+import { onMounted, ref } from 'vue';
+import { useModalStore } from '../../../../stores/modalState';
+import axios from 'axios';
+import { onUnmounted } from 'vue';
+
+const { id } = defineProps(['id']);
+const emit = defineEmits(['modalClose', 'postSuccess']);
+
+const modalState = useModalStore();
+const noticeDetail = ref({});
+const imageUrl = ref('');
+
+const searchDetail = () => {
+    axios
+        .post('/api/management/noticeDetailJson.do', { noticeId: id })
+        .then(res => {
+            noticeDetail.value = res.data.detailValue;
+        });
+};
+
+const noticeSave = () => {
+    const param = new URLSearchParams(noticeDetail.value);
+    axios.post('/api/management/noticeSave.do', param).then(res => {
+        if (res.data.result === 'success') {
+            emit('postSuccess');
+        }
+    });
+};
+
+const noticeUpdate = () => {
+    const param = new URLSearchParams(noticeDetail.value);
+    param.append('noticeId', id);
+    axios.post('/api/management/noticeUpdate.do', param).then(res => {
+        if (res.data.result === 'success') {
+            emit('postSuccess');
+        }
+    });
+};
+
+const noticeDelete = () => {
+    axios
+        .post('/api/management/noticeDeleteJson.do', { noticeId: id })
+        .then(res => {
+            if (res.data.result === 'success') {
+                emit('postSuccess');
+            }
+        });
+};
+
+const handlerFile = e => {
+    const fileInfo = e.target.files;
+    const fileInfoSplit = fileInfo[0].name.split('.');
+    const fileExtension = fileInfoSplit[1].toLowerCase();
+
+    if (
+        fileExtension === 'jpg' ||
+        fileExtension === 'gif' ||
+        fileExtension === 'png'
+    ) {
+        imageUrl.value = URL.createObjectURL(fileInfo[0]);
+    }
+};
+
+onMounted(() => {
+    id && searchDetail();
+});
+
+onUnmounted(() => {
+    emit('modalClose', 0);
+});
+</script>
 <template>
     <teleport to="body">
         <div class="backdrop">
             <div class="container">
-                <label> 제목 :<input type="text" /> </label>
+                <label>
+                    제목 :<input type="text" v-model="noticeDetail.title" />
+                </label>
                 <label>
                     내용 :
-                    <input type="text" />
+                    <input type="text" v-model="noticeDetail.content" />
                 </label>
-                파일 :<input type="file" style="display: none" id="fileInput" />
+                파일 :<input
+                    type="file"
+                    style="display: none"
+                    id="fileInput"
+                    @change="handlerFile"
+                />
                 <label class="img-label" htmlFor="fileInput">
                     파일 첨부하기
                 </label>
                 <div>
                     <div>
                         <label>미리보기</label>
-                        <img />
+                        <img :src="imageUrl" />
                     </div>
                 </div>
                 <div class="button-box">
-                    <button>저장</button>
-                    <button>삭제</button>
-                    <button>나가기</button>
+                    <button @click="id ? noticeUpdate() : noticeSave()">
+                        {{ id ? '수정' : '저장' }}
+                    </button>
+                    <button v-if="id" @click="noticeDelete">삭제</button>
+                    <button @click="modalState.setModalState()">나가기</button>
                 </div>
             </div>
         </div>
     </teleport>
 </template>
-
-<script setup></script>
 
 <style lang="scss" scoped>
 .backdrop {
